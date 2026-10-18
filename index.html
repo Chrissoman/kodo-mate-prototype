@@ -1,0 +1,1085 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Kodo Mate</title>
+		<style>
+			:root {
+				--cream: #fff9ee;
+				--ink: #171138;
+				--muted: rgba(23, 17, 56, 0.55);
+				--hairline: rgba(23, 17, 56, 0.12);
+				--pink: #ffa7e0;
+			}
+			* {
+				box-sizing: border-box;
+			}
+			html,
+			body {
+				margin: 0;
+				height: 100%;
+			}
+			body {
+				background: var(--cream);
+				color: var(--ink);
+				font: 13px/1.3 "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+				display: grid;
+				overflow: hidden;
+			}
+			.stage {
+				position: relative;
+				display: grid;
+				place-items: center;
+			}
+			/* The size it has in an empty state, or large to see the detail. */
+			.mate {
+				height: 112px;
+				aspect-ratio: 1080 / 1218;
+				transition: height 400ms cubic-bezier(0.2, 0.8, 0.2, 1);
+			}
+			body[data-size="large"] .mate {
+				height: min(46vh, 380px);
+			}
+			.reach {
+				position: absolute;
+				border: 1px dashed var(--hairline);
+				border-radius: 50%;
+				pointer-events: none;
+				opacity: 0;
+				transition: opacity 200ms;
+			}
+			body[data-show-reach] .reach {
+				opacity: 1;
+			}
+			.kodo-mate {
+				display: block;
+				width: 100%;
+				height: 100%;
+				overflow: visible;
+				transform-origin: 50% 92%;
+				will-change: transform;
+			}
+			.mode {
+				position: absolute;
+				top: 20px;
+				left: 50%;
+				translate: -50% 0;
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				color: var(--muted);
+			}
+			.mode::before {
+				content: "";
+				width: 7px;
+				height: 7px;
+				border-radius: 50%;
+				background: var(--hairline);
+				transition: background 200ms, box-shadow 200ms;
+			}
+			body[data-mode="noticed"] .mode::before,
+			body[data-mode="giggle"] .mode::before,
+			body[data-mode="startle"] .mode::before {
+				background: var(--pink);
+				box-shadow: 0 0 6px var(--pink);
+			}
+			/* Settings: a cog in the corner opens a small panel above it. */
+			.cog {
+				position: fixed;
+				right: 20px;
+				bottom: 20px;
+				display: grid;
+				place-items: center;
+				width: 40px;
+				height: 40px;
+				border: 0;
+				border-radius: 50%;
+				color: var(--ink);
+				background: rgba(255, 255, 255, 0.7);
+				box-shadow: inset 0 0 0 1px var(--hairline);
+				cursor: pointer;
+				transition: background 150ms, transform 300ms cubic-bezier(0.2, 0.8, 0.2, 1);
+			}
+			.cog:hover {
+				background: #fff;
+			}
+			.cog[aria-expanded="true"] {
+				background: var(--ink);
+				color: var(--cream);
+				box-shadow: none;
+				transform: rotate(60deg);
+			}
+			.cog svg {
+				width: 18px;
+				height: 18px;
+			}
+			.panel {
+				position: fixed;
+				right: 20px;
+				bottom: 72px;
+				width: min(300px, calc(100vw - 40px));
+				padding: 16px;
+				display: grid;
+				gap: 16px;
+				background: #fff;
+				border-radius: 16px;
+				box-shadow: 0 0 0 1px var(--hairline), 0 12px 32px -8px rgba(23, 17, 56, 0.18), 0 2px 6px rgba(23, 17, 56, 0.06);
+				transform-origin: 100% 100%;
+				transition: opacity 160ms, transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+			}
+			.panel[hidden] {
+				display: grid;
+				opacity: 0;
+				transform: translateY(6px) scale(0.97);
+				pointer-events: none;
+				visibility: hidden;
+				transition: opacity 120ms, transform 160ms, visibility 0s 160ms;
+			}
+			.panel h2 {
+				margin: 0 0 8px;
+				font-size: 11px;
+				font-weight: 600;
+				letter-spacing: 0.04em;
+				text-transform: uppercase;
+				color: var(--muted);
+			}
+			.row {
+				display: flex;
+				flex-wrap: wrap;
+				align-items: center;
+				gap: 6px;
+			}
+			.panel button {
+				font: inherit;
+				font-weight: 500;
+				color: var(--ink);
+				background: rgba(23, 17, 56, 0.04);
+				border: 0;
+				box-shadow: inset 0 0 0 1px var(--hairline);
+				border-radius: 999px;
+				padding: 7px 12px;
+				cursor: pointer;
+			}
+			.panel button:hover {
+				background: rgba(23, 17, 56, 0.08);
+			}
+			.panel button[aria-pressed="true"] {
+				background: var(--ink);
+				color: var(--cream);
+				box-shadow: none;
+			}
+			.slider {
+				display: flex;
+				align-items: center;
+				gap: 10px;
+			}
+			.slider input {
+				flex: 1;
+				accent-color: var(--ink);
+			}
+			.slider output {
+				min-width: 3ch;
+				text-align: right;
+				font-variant-numeric: tabular-nums;
+			}
+			.note {
+				margin: 0;
+				color: var(--muted);
+				font-size: 12px;
+			}
+		</style>
+	</head>
+	<body data-size="small">
+		<main class="stage">
+			<div class="mode" aria-live="polite">Looking around</div>
+			<div class="reach" aria-hidden="true"></div>
+			<div class="mate"></div>
+		</main>
+		<button class="cog" type="button" aria-label="Settings" aria-expanded="false" aria-controls="settings">
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+				<path
+					d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"
+				/>
+				<circle cx="12" cy="12" r="3" />
+			</svg>
+		</button>
+		<div class="panel" id="settings" role="dialog" aria-label="Settings" hidden>
+			<section>
+				<h2>Play</h2>
+				<div class="row">
+					<button type="button" data-play="look">Look around</button>
+					<button type="button" data-play="playful">Playful</button>
+					<button type="button" data-play="blink">Blink</button>
+					<button type="button" data-play="giggle">Giggle</button>
+					<button type="button" data-play="sleep">Sleep</button>
+				</div>
+			</section>
+			<section>
+				<h2>Reach</h2>
+				<div class="slider">
+					<input type="range" min="0.8" max="4" step="0.1" value="2" aria-label="Reach, in heights of the mate" />
+					<output>2.0×</output>
+				</div>
+				<div class="row" style="margin-top: 8px">
+					<button type="button" data-toggle="reach" aria-pressed="false">Show reach</button>
+				</div>
+			</section>
+			<section>
+				<h2>Size</h2>
+				<div class="row" role="group" aria-label="Size">
+					<button type="button" data-size="small" aria-pressed="true">Empty state</button>
+					<button type="button" data-size="large" aria-pressed="false">Large</button>
+				</div>
+			</section>
+			<p class="note">Touch it, wiggle over it, click it. Leave the mouse still for 15 seconds and it dozes off.</p>
+		</div>
+		<script>
+			// Kodo mate: the pink K looks around for something that isn't there, pulls faces and blinks now and then. When the pointer
+			// comes near it notices and follows it (the whole K leaning a touch its way); touch it and it giggles (wiggle the pointer over it for more), click it and it jumps; leave it alone for a
+			// while and it dozes off.
+			//
+			// Built from "kodo mate.svg" (1000 x 1108). Body and face plate are the original paths. The rest is rebuilt so it can move:
+			// - Eyes: the two whites are the same ellipse (81.6 x 134.7, tilted -10.2deg with the face). Each drawn pupil is that ellipse
+			//   at 0.96 scale, pushed up-left and clipped by the white, so a moving pupil ellipse clipped to the white reproduces it.
+			// - Brows and mouth: the drawn shapes are 30-unit round-capped strokes, so they're redrawn as stroked centrelines (within
+			//   ~1 unit of the art at rest) whose points can morph between expressions.
+
+			const NS = "http://www.w3.org/2000/svg"
+			const NAVY = "#171138"
+			const PINK = "#FFA7E0"
+			const TONGUE = "#FF6CB4"
+			const STROKE = 30
+
+			const BODY_D =
+				"M317.073 1107.14H383.193C451.006 1107.14 512.129 1072.31 546.804 1016.19L578.711 1048.86C615.308 1086.46 664.207 1107.14 716.335 1107.14H805.829C865.107 1107.14 919.541 1082.38 955.139 1039.17C1018.57 962.212 1014.26 850.883 945.221 780.226L777.92 608.85L926.999 452.236C967.671 409.565 981.356 355.284 981.356 298.466C981.51 139.546 833.968 0 666.36 0H578.634C525.276 0 473.917 22.2966 437.782 61.2771L417.407 83.1893C381.579 31.6765 322.531 0 259.101 0H192.673C86.4184 0 0 86.8797 0 193.673V789.145C0 920.618 119.71 1107.22 317.073 1107.22V1107.14Z"
+			const FACE_D =
+				"M568.256 485.45C568.256 485.45 567.948 484.22 568.256 483.912L757.623 284.935C783.994 257.256 799.525 219.198 795.219 180.91C787.915 110.945 731.174 62.2766 666.284 62.2766H578.558C542.422 62.2766 507.824 77.1922 483.298 103.641L427.172 163.918C415.024 176.989 393.497 173.683 386.193 157.229L377.428 138.085C355.9 91.8003 309.769 62.3535 259.102 62.3535H192.674C120.787 62.3535 62.2004 121.093 62.2004 193.826V789.299C62.2004 861.724 120.787 920.771 192.674 920.771H258.795C312.23 920.771 360.129 888.249 379.888 838.659L388.653 816.131C395.034 800.293 415.332 796.064 427.48 808.212L498.752 881.253C523.355 906.471 556.723 920.771 591.936 920.771H681.43C719.949 920.771 758.161 905.241 782.764 875.409C827.357 821.283 822.206 746.397 776.383 699.574L567.948 485.988L568.256 485.681V485.45Z"
+
+			const TILT_DEG = -10.2
+			const TILT = (TILT_DEG * Math.PI) / 180
+			const COS = Math.cos(TILT)
+			const SIN = Math.sin(TILT)
+			const EYE = { rx: 81.6, ry: 134.7 }
+			const PUPIL = { rx: 78, ry: 128.4 }
+			const EYES = [
+				{ x: 191.4, y: 495.1 },
+				{ x: 441.25, y: 448.6 },
+			]
+			// Both eyes look from the point between them, so they always look the same way (never cross-eyed).
+			const EYE_MID = { x: (EYES[0].x + EYES[1].x) / 2, y: (EYES[0].y + EYES[1].y) / 2 }
+			// Where shut eyes close, in the eye's own units (-1 top, +1 bottom): a little below the middle, like a top lid doing most of it.
+			const LID_SEAM = 0.28
+			// How far a pupil can sit from the middle of its white, on the white's own scale: the art's up-left look is 1.13.
+			const GAZE_EDGE = 1.13
+			// How long without any movement before it dozes off.
+			const SLEEP_AFTER = 15000
+			// One slow breath, in ms.
+			const BREATH = 3600
+
+			// The two mouth strokes, as two-segment cubic chains (7 points each). Open mouths run left corner → cusp → right corner;
+			// closed ones (filled) run all the way round, the second stroke ending where the first began. The newer shapes were laid out
+			// along the face's own tilt, so they sit right in three-quarter view.
+			const MOUTHS = {
+				// As drawn: a lopsided cat smile seen from three-quarters.
+				smirk: [
+					274.6, 689.5, 339.3, 688.2, 366.2, 653, 371, 646.3, 373, 638, 370.5, 620, 369.6, 610.6, 369.6, 610.6, 371, 620, 375, 630, 388, 639, 402, 648,
+					418, 653.5, 434.6, 656.3,
+				],
+				// A little round "oh".
+				oh: [
+					360, 676, 348, 676, 338, 663, 338, 648, 338, 633, 348, 620, 360, 620, 360, 620, 372, 620, 382, 633, 382, 648, 382, 663, 372, 676, 360, 676,
+				],
+				// A short wavy line, pulled to one side: thinking.
+				hmm: [
+					318.3, 673.5, 325.6, 674.5, 332.9, 675.4, 339.8, 674.2, 346.6, 672.9, 353.2, 669.6, 359.6, 666, 359.6, 666, 366.1, 662.5, 372.6, 659.1,
+					379.5, 657.9, 386.4, 656.6, 393.7, 657.5, 401, 658.6,
+				],
+				// A soft closed smile, for following the pointer.
+				smile: [
+					296.1, 674.4, 308.8, 678.9, 321.1, 681.7, 333.2, 683, 345.3, 684.2, 357.1, 683.7, 368.5, 681.7, 368.5, 681.7, 380, 679.6, 391.2, 675.9,
+					402.1, 670.6, 413, 665.2, 423.6, 658.2, 433.9, 649.6,
+				],
+				// The smile, lopsided (right corner up), for the tongue to poke out of.
+				cheeky: [
+					296.1, 674.4, 307.9, 678, 319.5, 680.1, 330.8, 680.7, 342, 681.2, 353, 680.2, 363.7, 677.6, 363.7, 677.6, 375.1, 674.8, 386.1, 670.4,
+					396.9, 664.1, 407.6, 657.9, 418, 649.9, 428.1, 640.1,
+				],
+				// An open smile with a round bottom: top lip left to right, then a half ellipse back.
+				grin: [
+					304.9, 666.7, 325.2, 666.5, 345.1, 664.6, 364.8, 661, 384.5, 657.5, 403.9, 652.3, 423, 645.5, 423, 645.5, 427.9, 672.6, 405.4, 699.4, 372.8, 705.3, 340.2, 711.2, 309.8, 693.9, 304.9, 666.7,
+				],
+				// A bigger one, for giggling.
+				laugh: [
+					292.4, 664.9, 315.9, 664.1, 339.2, 661.6, 362.1, 657.4, 385.1, 653.3, 407.8, 647.5, 430.2, 640.1, 430.2, 640.1, 436.2, 673.8, 410.3, 706.7, 372.2, 713.5, 334.2, 720.4, 298.4, 698.6, 292.4, 664.9,
+				],
+				// Asleep: a small "o" that opens and closes with each breath.
+				sleepIn: [
+					361.8, 677.8, 357.6, 678.6, 353.1, 675, 352.3, 670.4, 351.4, 665.7, 354.4, 660.9, 358.6, 660.1, 358.6, 660.1, 362.7, 659.4, 367.2, 662.9,
+					368, 667.6, 368.9, 672.2, 365.9, 677.1, 361.8, 677.8,
+				],
+				sleepOut: [
+					363.2, 685.7, 357, 686.8, 350.1, 680.8, 348.7, 673.1, 347.3, 665.3, 351.7, 657.3, 357.9, 656.2, 357.9, 656.2, 364, 655.1, 370.9, 661.1,
+					372.3, 668.8, 373.7, 676.5, 369.4, 684.6, 363.2, 685.7,
+				],
+			}
+			for (const [name, points] of Object.entries(MOUTHS)) if (points.length !== 28) throw new Error(`Mouth "${name}" needs 14 points`)
+
+			// Left brow then right brow, each a quadratic: start, control, end.
+			const BROWS = {
+				rest: [116.3, 342.2, 138.8, 327.15, 156.5, 323.5, 413.4, 227.4, 442.15, 231.5, 468.3, 244.8],
+				up: [113, 318, 135, 294, 158, 294, 411, 199, 442, 193, 471, 208],
+				quizzical: [119, 349, 139, 342, 159, 341, 409, 196, 439, 184, 471, 202],
+				happy: [115, 333, 137, 315, 157, 312, 413, 216, 442, 218, 469, 232],
+				laugh: [113, 322, 135, 302, 157, 300, 411, 204, 442, 203, 471, 219],
+				sleepy: [118, 352, 139, 344, 159, 343, 414, 238, 442, 240, 467, 252],
+			}
+
+			// lid: how shut the eyes are held (0 open, 1 shut); curve: the closed eye's line, bowed down (+) or up into a happy "^" (-).
+			const EXPRESSIONS = {
+				smirk: { mouth: "smirk", brows: "rest" },
+				hmm: { mouth: "hmm", brows: "quizzical" },
+				oh: { mouth: "oh", brows: "up", fill: 1 },
+				smile: { mouth: "smile", brows: "happy", squint: 0.25 },
+				grin: { mouth: "grin", brows: "happy", fill: 1, inner: 1, squint: 0.3 },
+				cheeky: { mouth: "cheeky", brows: "happy", tongue: 1, squint: 0.22 },
+				laugh: { mouth: "laugh", brows: "laugh", fill: 1, inner: 1, lid: 1, curve: -62 },
+				// pupil: pupil size against the white (1 as drawn); small pupils read as wide-eyed.
+				surprised: { mouth: "oh", brows: "up", fill: 1, pupil: 0.68 },
+				drowsy: { mouth: "hmm", brows: "sleepy", lid: 0.55 },
+				asleep: { mouth: "sleepIn", brows: "sleepy", fill: 1, lid: 1, curve: 26 },
+			}
+
+			// --- small helpers ----------------------------------------------------------------------------------------------------
+
+			const toWorld = (x, y) => ({ x: x * COS - y * SIN, y: x * SIN + y * COS })
+			const toLocal = (x, y) => ({ x: x * COS + y * SIN, y: -x * SIN + y * COS })
+			const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v))
+			const lerp = (a, b, t) => a + (b - a) * t
+			const smoothstep = (e0, e1, x) => {
+				const t = clamp((x - e0) / (e1 - e0), 0, 1)
+				return t * t * (3 - 2 * t)
+			}
+			const rand = (lo, hi) => lo + Math.random() * (hi - lo)
+			const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2)
+			const f1 = (n) => Math.round(n * 10) / 10
+			// Gaze as [angle, distance from the middle]. Eyes ease in these terms, so a big glance rolls the pupil round the rim of the
+			// white instead of cutting straight through the middle (which flashes a fully dark eye).
+			const toPolar = ([x, y]) => [Math.atan2(y, x), Math.hypot(x, y)]
+			const fromPolar = ([a, m]) => [Math.cos(a) * m, Math.sin(a) * m]
+			const nearAngle = (a, to) => {
+				while (a - to > Math.PI) a -= 2 * Math.PI
+				while (a - to < -Math.PI) a += 2 * Math.PI
+				return a
+			}
+			function blendGaze(from, to, t) {
+				const [fa, fm] = toPolar(from)
+				const [ta, tm] = toPolar(to)
+				return fromPolar([lerp(fa, nearAngle(ta, fa), t), lerp(fm, tm, t)])
+			}
+
+			// A damped spring per number. Underdamped (zeta < 1) overshoots a little, which is where the squish comes from.
+			class Springs {
+				constructor(values, omega, zeta) {
+					this.value = Float64Array.from(values)
+					this.target = Float64Array.from(values)
+					this.velocity = new Float64Array(values.length)
+					this.omega = omega
+					this.zeta = zeta
+				}
+				set(values) {
+					this.target.set(values)
+				}
+				step(dt) {
+					const { value, target, velocity, omega, zeta } = this
+					const k = omega * omega
+					const c = 2 * zeta * omega
+					for (let i = 0; i < value.length; i++) {
+						velocity[i] += (-k * (value[i] - target[i]) - c * velocity[i]) * dt
+						value[i] += velocity[i] * dt
+					}
+				}
+			}
+
+			function el(name, attrs = {}, parent) {
+				const node = document.createElementNS(NS, name)
+				for (const [key, value] of Object.entries(attrs)) node.setAttribute(key, value)
+				parent?.appendChild(node)
+				return node
+			}
+
+			// A pupil offset (in the white's own units) that looks along a direction in the eye's local space, `m` of the way to the edge.
+			function gazeAlong(dx, dy, m) {
+				const len = Math.hypot(dx, dy)
+				if (len < 1e-6) return [0, 0]
+				const ux = dx / len
+				const uy = dy / len
+				const r = 1 / Math.sqrt((ux / EYE.rx) ** 2 + (uy / EYE.ry) ** 2)
+				return [(ux * r * m) / EYE.rx, (uy * r * m) / EYE.ry]
+			}
+
+			function gazeAtAngle(deg, m = 1.08) {
+				const a = (deg * Math.PI) / 180
+				return gazeAlong(Math.cos(a) * EYE.rx, Math.sin(a) * EYE.ry, m)
+			}
+
+			const REST_GAZE = [-0.62, -0.95]
+
+			// Glances for looking around, angles in the eye's own space (0 right, 90 down). Picked a few at a time, so no two rounds
+			// are quite the same.
+			const GLANCES = [
+				{ gaze: () => gazeAtAngle(180), expr: "hmm", hold: [700, 1100] },
+				{ gaze: () => gazeAtAngle(145), expr: "hmm", hold: [500, 900] },
+				{ gaze: () => gazeAtAngle(40), expr: "hmm", hold: [400, 700], pursuit: 900 },
+				{ gaze: () => gazeAtAngle(0, 1.1), expr: "hmm", hold: [800, 1200] },
+				{ gaze: () => gazeAtAngle(-60), expr: "smirk", hold: [600, 900] },
+				{ gaze: () => gazeAtAngle(-105, 1.1), expr: "oh", hold: [450, 650] },
+				{ gaze: () => gazeAtAngle(90, 1.05), expr: "hmm", hold: [500, 800], pursuit: 600 },
+			]
+
+			// --- the mate -----------------------------------------------------------------------------------------------------------
+
+			/**
+			 * Mounts the mate in `container` (it fills the container's height). Options: `reach`, how near the pointer has to come
+			 * before it's noticed, in heights of the mate (default 1.6); `onMode`, told "looking", "noticed", "giggle", "startle", "dozing" or
+			 * "asleep" as it changes. Returns controls for the prototype page.
+			 */
+			function mountKodoMate(container, { reach = 1.6, onMode } = {}) {
+				const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+				const uid = Math.random().toString(36).slice(2, 8)
+
+				const svg = el("svg", { viewBox: "-40 -70 1080 1218", role: "img", "aria-label": "Kodo mate", class: "kodo-mate" }, container)
+				const defs = el("defs", {}, svg)
+				const body = el("g", {}, svg)
+				el("path", { d: BODY_D, fill: NAVY }, body)
+				const plate = el("path", { d: FACE_D, fill: PINK }, body)
+				const features = el("g", {}, body)
+
+				const eyes = EYES.map((center, index) => {
+					const clip = el("clipPath", { id: `kodo-mate-eye-${uid}-${index}` }, defs)
+					const ellipseAttrs = { cx: center.x, cy: center.y, rx: EYE.rx, ry: EYE.ry, transform: `rotate(${TILT_DEG} ${center.x} ${center.y})` }
+					el("ellipse", ellipseAttrs, clip)
+					const group = el("g", {}, features)
+					el("ellipse", { ...ellipseAttrs, fill: "#fff" }, group)
+					const clipped = el("g", { "clip-path": `url(#kodo-mate-eye-${uid}-${index})` }, group)
+					const pupil = el("ellipse", { rx: PUPIL.rx, ry: PUPIL.ry, fill: NAVY }, clipped)
+					const lash = el("path", { fill: "none", stroke: NAVY, "stroke-width": 26, "stroke-linecap": "round", opacity: 0 }, features)
+					return { center, group, pupil, lash, gaze: new Springs([Math.atan2(REST_GAZE[1], REST_GAZE[0]), Math.hypot(...REST_GAZE)], 30, 0.86), vector: REST_GAZE }
+				})
+
+				// The cheeky tongue hangs out under the mouth line; the one inside an open mouth is clipped to it.
+				const tongue = el("g", {}, features)
+				el("path", { d: "M-40 -4C-58 68 58 68 40 -4Z", fill: TONGUE, stroke: NAVY, "stroke-width": 22, "stroke-linejoin": "round" }, tongue)
+				const mouthClip = el("clipPath", { id: `kodo-mate-mouth-${uid}` }, defs)
+				const mouthClipPath = el("path", {}, mouthClip)
+				const mouthFill = el("path", { fill: NAVY, opacity: 0 }, features)
+				const innerTongue = el("ellipse", { rx: 42, ry: 22, fill: TONGUE, opacity: 0, "clip-path": `url(#kodo-mate-mouth-${uid})` }, features)
+				const strokeAttrs = { fill: "none", stroke: NAVY, "stroke-width": STROKE, "stroke-linecap": "round", "stroke-linejoin": "round" }
+				const mouthLeft = el("path", strokeAttrs, features)
+				const mouthRight = el("path", strokeAttrs, features)
+				const browLeft = el("path", strokeAttrs, features)
+				const browRight = el("path", strokeAttrs, features)
+
+				// Z's float up off the top-right of its head while it sleeps. They sit outside the body, so they don't lean with it.
+				const zees = el("g", { "pointer-events": "none" }, svg)
+				const zPaths = [0, 1, 2].map(() =>
+					el("path", { d: "M-34 -30H34L-34 30H34", fill: "none", stroke: NAVY, "stroke-width": 20, "stroke-linecap": "round", "stroke-linejoin": "round", opacity: 0 }, zees)
+				)
+
+				// Everything that eases. Mouth and brows are a little bouncy; the face shift and lean are slow and soft.
+				const mouth = new Springs(MOUTHS.smirk, 20, 0.62)
+				const brows = new Springs(BROWS.rest, 22, 0.55)
+				const extras = new Springs([0, 0, 0, 0, 1], 16, 0.5) // tongue, fill, squint, tongue inside an open mouth, pupil size
+				const lids = new Springs([0, 14], 12, 0.95) // how shut, closed-eye curve
+				const shift = new Springs([0, 0], 9, 0.85) // the features, in face units
+				const lean = new Springs([0, 0], 5, 0.9) // the whole mate, -1..1 toward the pointer
+				const hop = new Springs([0], 13, 0.42) // px up/down, kicked when it notices the pointer or giggles
+				const recoil = new Springs([0, 0], 11, 0.6) // px, a hop back away from a click
+				const attention = new Springs([0], 7, 1)
+				const sleepiness = new Springs([0], 2.2, 1) // 0 awake, 1 fast asleep: a deeper breath and a slump
+
+				let posed = null // { gaze, shut } while a pose is held for review
+				let expression = "smirk"
+				function setExpression(name) {
+					const e = EXPRESSIONS[name]
+					expression = name
+					mouth.set(MOUTHS[e.mouth])
+					brows.set(BROWS[e.brows])
+					extras.set([e.tongue ?? 0, e.fill ?? 0, e.squint ?? 0, e.inner ?? 0, e.pupil ?? 1])
+					lids.set([e.lid ?? 0, e.curve ?? 14])
+				}
+
+				let mode = "looking"
+				function setMode(next) {
+					if (next === mode) return
+					mode = next
+					onMode?.(next)
+				}
+
+				// Gaze targets: what looking around wants, what the pointer wants, blended by attention.
+				let idleGaze = REST_GAZE
+				let pursuit = null // { from, to, start, duration }
+				let jitter = [0, 0]
+				let nextJitter = 0
+
+				// --- blinks
+				let blink = null // { start, double }
+				let nextBlink = performance.now() + rand(1200, 3000)
+				function startBlink(now, double = Math.random() < 0.18) {
+					blink = { start: now, double }
+					nextBlink = now + rand(2400, 5600)
+				}
+				// 0 open, 1 shut: 70ms down, a 40ms hold, 120ms up.
+				function blinkClosure(now) {
+					if (!blink) return 0
+					const t = now - blink.start
+					if (t < 0) return 0
+					const one = (u) => (u < 70 ? easeInOut(u / 70) : u < 110 ? 1 : u < 230 ? 1 - easeInOut((u - 110) / 120) : 0)
+					if (t < 230) return one(t)
+					if (blink.double && t < 230 + 90 + 230) return t < 320 ? 0 : one(t - 320)
+					blink = null
+					return 0
+				}
+
+				// --- looking around: a few glances, back to the drawn pose, and now and then (never two rounds running) a cheeky face.
+				let queue = []
+				let wasCheeky = false
+				let stepEndsAt = 0
+				const CHEEKY_STEP = () => ({ gaze: gazeAlong(0.5, -0.4, 0.62), expr: "cheeky", hold: rand(1300, 1800), kick: true })
+				function planRound() {
+					const glances = [...GLANCES].sort(() => Math.random() - 0.5).slice(0, 3 + Math.floor(Math.random() * 2))
+					const steps = glances.map((glance) => ({ gaze: glance.gaze(), expr: glance.expr, hold: rand(...glance.hold), pursuit: glance.pursuit }))
+					const cheeky = !wasCheeky && Math.random() < 0.4
+					wasCheeky = cheeky
+					if (cheeky) steps.push(CHEEKY_STEP())
+					steps.push({ gaze: REST_GAZE, expr: "smirk", hold: rand(1500, 2600) })
+					return steps
+				}
+				function runStep(now) {
+					if (queue.length === 0) queue = planRound()
+					const step = queue.shift()
+					if (step.pursuit) pursuit = { from: currentIdleGaze(now), to: step.gaze, start: now, duration: step.pursuit }
+					else pursuit = null
+					idleGaze = step.gaze
+					setExpression(step.expr)
+					if (step.kick) kick(170)
+					// A long jump of the eyes often comes with a blink.
+					if (!step.pursuit && Math.random() < 0.22) startBlink(now + 20, false)
+					stepEndsAt = now + (step.pursuit ?? 0) + step.hold
+				}
+				function currentIdleGaze(now) {
+					if (!pursuit) return idleGaze
+					const t = easeInOut(clamp((now - pursuit.start) / pursuit.duration, 0, 1))
+					return blendGaze(pursuit.from, pursuit.to, t)
+				}
+				function lookTo(now, gaze, duration) {
+					pursuit = { from: currentIdleGaze(now), to: gaze, start: now, duration }
+					idleGaze = gaze
+				}
+
+				function kick(speed) {
+					if (!reducedMotion) hop.velocity[0] -= speed
+				}
+
+				// --- giggles: the first touch sets off a run of little hops. After that it takes a wiggle (the pointer jiggled back and
+				// forth over it) or a click to set off another. Once it loses the pointer (or sleeps), the next touch counts as a first.
+				let giggle = null // { start, until, kicks: [[at, speed]] }
+				let onBody = false
+				let touched = false
+				let lastGiggle = -Infinity
+				// A wiggle is three back-and-forths along one axis inside 700ms, each a short stroke (12–160px). Gliding across it, or one
+				// change of direction, isn't.
+				const wiggle = { x: { sign: 0, run: 0, turns: [] }, y: { sign: 0, run: 0, turns: [] } }
+				function trackWiggle(dx, dy, now) {
+					for (const [axis, d] of [["x", dx], ["y", dy]]) {
+						const w = wiggle[axis]
+						w.turns = w.turns.filter((at) => now - at < 700)
+						if (Math.abs(d) < 0.5) continue
+						const sign = Math.sign(d)
+						if (sign === w.sign) w.run += Math.abs(d)
+						else {
+							if (w.sign !== 0 && w.run >= 12 && w.run <= 160) w.turns.push(now)
+							else w.turns = []
+							w.sign = sign
+							w.run = Math.abs(d)
+						}
+					}
+				}
+				const wiggled = () => wiggle.x.turns.length >= 3 || wiggle.y.turns.length >= 3
+				function clearWiggle() {
+					wiggle.x.turns = []
+					wiggle.y.turns = []
+				}
+				function startGiggle(now) {
+					giggle = { start: now, until: now + 950, kicks: [0, 150, 300, 450].map((t, i) => [now + t, [190, 140, 100, 70][i]]) }
+					lastGiggle = now
+					touched = true
+					clearWiggle()
+					blink = null
+					setExpression("laugh")
+					setMode("giggle")
+				}
+				body.addEventListener("pointerenter", () => {
+					onBody = true
+					const now = performance.now()
+					// Just woken, it gets its "oh" out before it can be tickled.
+					if (!touched && sleep.state === "awake" && now - sleep.since > 700 && !giggle && !startle) startGiggle(now)
+				})
+				body.addEventListener("pointerleave", () => (onBody = false))
+				body.addEventListener("pointerdown", (event) => {
+					if (sleep.state === "awake") startStartle(performance.now(), { x: event.clientX, y: event.clientY })
+				})
+
+				// --- a click on it: an "oh", wide eyes and a quick hop back, away from where it was poked; then it settles back.
+				let startle = null // { until }
+				function startStartle(now, from) {
+					giggle = null
+					clearWiggle()
+					touched = true
+					blink = null
+					const rect = svg.getBoundingClientRect()
+					const dx = rect.left + rect.width / 2 - from.x
+					const dy = rect.top + rect.height * 0.52 - from.y
+					const len = Math.hypot(dx, dy) || 1
+					// Mostly sideways (a poke dead centre still sends it to one side), and only a little up or down.
+					let ax = dx / len
+					if (Math.abs(ax) < 0.35) ax = (ax < 0 ? -1 : 1) * 0.6
+					const ay = clamp(dy / len, -0.4, 0.3)
+					recoil.set([ax * 14, ay * 8])
+					recoil.velocity[0] += ax * 260
+					recoil.velocity[1] += ay * 160
+					kick(150)
+					startle = { until: now + 900 }
+					setExpression("surprised")
+					setMode("startle")
+				}
+
+				// --- sleep: no movement for a while and it gets drowsy, then nods off. A proper move (or a click or key) wakes it.
+				let sleep = { state: "awake", since: 0 }
+				let lastActivity = performance.now()
+				let wakeGraceUntil = 0
+				let stirred = 0
+				let zBirths = []
+				let nextZ = 0
+				function doze(now) {
+					sleep = { state: "drowsy", since: now }
+					noticed = false
+					touched = false
+					giggle = null
+					stirred = 0
+					startle = null
+					recoil.set([0, 0])
+					lookTo(now, gazeAtAngle(115, 0.95), 1600)
+					setExpression("drowsy")
+					setMode("dozing")
+				}
+				function fallAsleep(now) {
+					sleep = { state: "asleep", since: now }
+					setExpression("asleep")
+					nextZ = now + 700
+					setMode("asleep")
+				}
+				function wake(now) {
+					sleep = { state: "awake", since: now }
+					lastActivity = now
+					zBirths = []
+					queue = []
+					pursuit = null
+					idleGaze = gazeAtAngle(-100, 1.05)
+					setExpression("oh")
+					kick(230)
+					startBlink(now + 280, true)
+					stepEndsAt = now + 700
+					setMode("looking")
+				}
+
+				// --- the pointer
+				let pointer = null // client px
+				let noticed = false
+				let noticedAt = 0
+				let cheekyAt = 0
+				function onActivity(event) {
+					const now = performance.now()
+					if (event.type === "pointermove") {
+						const next = { x: event.clientX, y: event.clientY }
+						const dx = pointer ? next.x - pointer.x : 0
+						const dy = pointer ? next.y - pointer.y : 0
+						const moved = Math.hypot(dx, dy)
+						pointer = next
+						if (onBody && moved) trackWiggle(dx, dy, now)
+						if (sleep.state !== "awake") {
+							// A twitch doesn't wake it; a real move does.
+							stirred += moved
+							if (now < wakeGraceUntil || stirred < 60) return
+						}
+					}
+					lastActivity = now
+					if (sleep.state !== "awake" && now >= wakeGraceUntil) wake(now)
+				}
+				const onLeave = (event) => {
+					if (!event.relatedTarget) pointer = null
+				}
+				const activityEvents = ["pointermove", "pointerdown", "keydown", "wheel"]
+				activityEvents.forEach((type) => window.addEventListener(type, onActivity, { passive: true }))
+				document.addEventListener("pointerout", onLeave)
+
+				// --- the loop
+				let last = performance.now()
+				let frame = requestAnimationFrame(tick)
+				onMode?.(mode)
+
+				function tick(now) {
+					frame = requestAnimationFrame(tick)
+					const dt = Math.min(0.033, (now - last) / 1000)
+					last = now
+
+					const rect = svg.getBoundingClientRect()
+					const height = rect.height || 1
+					const centre = { x: rect.left + rect.width / 2, y: rect.top + rect.height * 0.52 }
+					const awake = sleep.state === "awake"
+
+					// Attention: 1 inside the reach, easing to 0 just past it. Nobody's home while it sleeps.
+					let pointerWorld = null
+					let toward = [0, 0]
+					let wanted = 0
+					if (pointer && awake && !posed) {
+						const dx = pointer.x - centre.x
+						const dy = pointer.y - centre.y
+						const d = Math.hypot(dx, dy) / height
+						wanted = 1 - smoothstep(reach * 0.85, reach, d)
+						toward = [clamp(dx / (height * reach), -1, 1), clamp(dy / (height * reach), -1, 1)]
+						const ctm = svg.getScreenCTM()
+						if (ctm) {
+							const p = new DOMPoint(pointer.x, pointer.y).matrixTransform(ctm.inverse())
+							pointerWorld = { x: p.x, y: p.y }
+						}
+					}
+					attention.set([wanted])
+					attention.step(dt)
+					const att = clamp(attention.value[0], 0, 1)
+
+					if (awake && !posed) {
+						if (!noticed && att > 0.6) {
+							noticed = true
+							noticedAt = now
+							cheekyAt = now + rand(3500, 6000)
+							if (!giggle) {
+								setExpression("oh")
+								kick(240)
+								startBlink(now + 30, false)
+								setMode("noticed")
+							}
+						} else if (noticed && att < 0.3) {
+							noticed = false
+							touched = false
+							if (!giggle) {
+								setExpression("hmm")
+								setMode("looking")
+							}
+							queue = []
+							stepEndsAt = now + 700
+						}
+					}
+
+					if (posed) {
+						// Held for review: nothing else changes the face.
+					} else if (sleep.state === "drowsy") {
+						if (now - sleep.since > 2800) fallAsleep(now)
+					} else if (sleep.state === "asleep") {
+						// Breathing through a little "o": it opens as the body sinks.
+						const open = (1 - Math.sin((now / BREATH) * Math.PI * 2)) / 2
+						mouth.set(MOUTHS.sleepIn.map((v, i) => lerp(v, MOUTHS.sleepOut[i], open)))
+						if (now >= nextZ) {
+							zBirths = [...zBirths.filter((born) => now - born < 3600), now].slice(-3)
+							nextZ = now + 1250
+						}
+					} else if (startle) {
+						if (now >= startle.until) {
+							startle = null
+							recoil.set([0, 0])
+							startBlink(now, false)
+							setExpression(noticed ? "smile" : "smirk")
+							setMode(noticed ? "noticed" : "looking")
+							stepEndsAt = now + 400
+						}
+					} else if (giggle) {
+						while (giggle.kicks.length && now >= giggle.kicks[0][0]) kick(giggle.kicks.shift()[1])
+						if (now >= giggle.until) {
+							giggle = null
+							clearWiggle()
+							setExpression(noticed ? "smile" : "smirk")
+							setMode(noticed ? "noticed" : "looking")
+							stepEndsAt = now + 400
+						}
+					} else if (noticed) {
+						if (expression === "oh" && now - noticedAt > 380) setExpression("grin")
+						if (expression === "grin" && now - noticedAt > 1100) setExpression("smile")
+						if (now > cheekyAt) {
+							setExpression(expression === "cheeky" ? "smile" : "cheeky")
+							cheekyAt = now + (expression === "cheeky" ? rand(1000, 1400) : rand(4000, 7000))
+						}
+					} else if (!reducedMotion && now >= stepEndsAt) {
+						runStep(now)
+					}
+
+					// Rubbing back and forth over it keeps it giggling.
+					if (awake && !posed && onBody && !giggle && !startle && wiggled() && now - lastGiggle > 600 && now - sleep.since > 700) startGiggle(now)
+					if (awake && !posed && !giggle && !startle && now >= nextBlink && !blink) startBlink(now)
+					if (awake && !posed && !giggle && !startle && now - lastActivity > SLEEP_AFTER) doze(now)
+
+					// Tiny drifts while holding a look, so the eyes never freeze.
+					if (now >= nextJitter) {
+						jitter = [rand(-0.05, 0.05), rand(-0.025, 0.025)]
+						nextJitter = now + rand(350, 800)
+					}
+
+					const idle = posed ? posed.gaze : reducedMotion && awake ? REST_GAZE : currentIdleGaze(now)
+					let target = idle
+					if (pointerWorld && att > 0) {
+						// One look for both eyes, from the point between them.
+						const local = toLocal(pointerWorld.x - (EYE_MID.x + shift.value[0]), pointerWorld.y - (EYE_MID.y + shift.value[1]))
+						const distance = Math.hypot(local.x, local.y)
+						// Far away the pupils sit at the edge of the whites; close up they come in, big and round-eyed.
+						if (distance > 1) target = blendGaze(idle, gazeAlong(local.x, local.y, lerp(0.62, 1.08, smoothstep(60, 650, distance))), att)
+					}
+					const [angle, distance] = toPolar(target)
+					for (const eye of eyes) {
+						eye.gaze.set([nearAngle(angle + jitter[0], eye.gaze.value[0]), distance + jitter[1]])
+						eye.gaze.step(dt)
+						eye.vector = fromPolar(eye.gaze.value)
+					}
+
+					// The face turns with the eyes: features slide a few units toward where they look, the plate a little less.
+					const look = toWorld(eyes[0].vector[0] * 7, eyes[0].vector[1] * 6)
+					shift.set([look.x + toward[0] * att * 6, look.y + toward[1] * att * 5])
+					lean.set(reducedMotion ? [0, 0] : [toward[0] * att, toward[1] * att])
+					sleepiness.set([sleep.state === "asleep" ? 1 : sleep.state === "drowsy" ? 0.45 : 0])
+					for (const spring of [mouth, brows, extras, lids, shift, lean, hop, recoil, sleepiness]) spring.step(dt)
+
+					render(now)
+				}
+
+				function render(now) {
+					const [sx, sy] = shift.value
+					features.setAttribute("transform", `translate(${f1(sx)} ${f1(sy)})`)
+					plate.setAttribute("transform", `translate(${f1(sx * 0.4)} ${f1(sy * 0.4)})`)
+
+					const shut = clamp(Math.max(posed ? posed.shut : blinkClosure(now), lids.value[0]), 0, 1)
+					const curve = lids.value[1]
+					const squint = clamp(extras.value[2], 0, 1)
+					for (const eye of eyes) {
+						const { x, y } = eye.center
+						// The eye's open span, top and bottom, in its own -1..1 units: shutting brings both to the seam, a squint lifts the bottom.
+						const top = lerp(-1, LID_SEAM, shut)
+						const bottom = Math.max(top + 0.035, Math.min(lerp(1, LID_SEAM, shut), 1 - squint * 1.25))
+						const scale = (bottom - top) / 2
+						const middle = ((top + bottom) / 2) * EYE.ry
+						eye.group.setAttribute(
+							"transform",
+							`translate(${x} ${y}) rotate(${TILT_DEG}) translate(0 ${f1(middle)}) scale(1 ${scale.toFixed(4)}) rotate(${-TILT_DEG}) translate(${-x} ${-y})`
+						)
+						const [gx, gy] = eye.vector
+						// Smaller pupils sit further in, so they stay whole inside the white.
+						const size = clamp(extras.value[4], 0.5, 1.1)
+						const reachIn = Math.min(1, size) ** 1.5
+						const offset = toWorld(clamp(gx, -GAZE_EDGE, GAZE_EDGE) * EYE.rx * reachIn, clamp(gy, -GAZE_EDGE, GAZE_EDGE) * EYE.ry * reachIn)
+						const px = x + offset.x
+						const py = y + offset.y
+						eye.pupil.setAttribute("cx", f1(px))
+						eye.pupil.setAttribute("rx", f1(PUPIL.rx * size))
+						eye.pupil.setAttribute("ry", f1(PUPIL.ry * size))
+						eye.pupil.setAttribute("cy", f1(py))
+						eye.pupil.setAttribute("transform", `rotate(${TILT_DEG} ${f1(px)} ${f1(py)})`)
+						// Nearly shut, the eye reads as a navy line along the seam: bowed down for a blink or sleep, up for a happy "^".
+						const lashOpacity = smoothstep(0.3, 0.1, bottom - top)
+						eye.lash.setAttribute("opacity", lashOpacity.toFixed(3))
+						// The squashed white is straight; hide it under a bowed line so no sliver shows past it.
+						eye.group.setAttribute("opacity", (1 - smoothstep(0.16, 0.08, bottom - top)).toFixed(3))
+						if (lashOpacity > 0) {
+							const seam = (top + bottom) / 2
+							const a = toWorld(-0.72 * EYE.rx, seam * EYE.ry)
+							const b = toWorld(0.72 * EYE.rx, seam * EYE.ry)
+							const c = toWorld(0, seam * EYE.ry + curve)
+							eye.lash.setAttribute("d", `M${f1(x + a.x)} ${f1(y + a.y)}Q${f1(x + c.x)} ${f1(y + c.y)} ${f1(x + b.x)} ${f1(y + b.y)}`)
+						}
+					}
+
+					const m = mouth.value
+					const chain = (o) =>
+						`M${f1(m[o])} ${f1(m[o + 1])}C${f1(m[o + 2])} ${f1(m[o + 3])} ${f1(m[o + 4])} ${f1(m[o + 5])} ${f1(m[o + 6])} ${f1(m[o + 7])}C${f1(m[o + 8])} ${f1(m[o + 9])} ${f1(m[o + 10])} ${f1(m[o + 11])} ${f1(m[o + 12])} ${f1(m[o + 13])}`
+					const left = chain(0)
+					const right = chain(14)
+					mouthLeft.setAttribute("d", left)
+					mouthRight.setAttribute("d", right)
+					const fill = clamp(extras.value[1], 0, 1)
+					mouthFill.setAttribute("opacity", fill.toFixed(3))
+					const inner = clamp(extras.value[3], 0, 1) * fill
+					innerTongue.setAttribute("opacity", inner.toFixed(3))
+					if (fill > 0.01) {
+						const closed = `${left}${right.replace(/^M[^C]+/, "")}Z`
+						mouthFill.setAttribute("d", closed)
+						if (inner > 0.01) {
+							mouthClipPath.setAttribute("d", closed)
+							// It rests in the bottom of the mouth, just above the lip (the second stroke's middle point).
+							innerTongue.setAttribute("cx", f1(m[20] - 4))
+							innerTongue.setAttribute("cy", f1(m[21] - 12))
+						}
+					}
+
+					const tongueScale = clamp(extras.value[0], 0, 1.2)
+					tongue.setAttribute("opacity", tongueScale > 0.02 ? "1" : "0")
+					// Hung from the smile, square to it, and dropped down from its top edge.
+					tongue.setAttribute("transform", `translate(371 676) rotate(-14) scale(1 ${tongueScale.toFixed(3)})`)
+
+					const b = brows.value
+					browLeft.setAttribute("d", `M${f1(b[0])} ${f1(b[1])}Q${f1(b[2])} ${f1(b[3])} ${f1(b[4])} ${f1(b[5])}`)
+					browRight.setAttribute("d", `M${f1(b[6])} ${f1(b[7])}Q${f1(b[8])} ${f1(b[9])} ${f1(b[10])} ${f1(b[11])}`)
+
+					// Z's: each drifts up and right, growing, then fades.
+					zPaths.forEach((path, index) => {
+						const born = zBirths[index]
+						const t = born === undefined ? 1 : (now - born) / 3600
+						if (t >= 1) return path.setAttribute("opacity", "0")
+						const x = 790 + t * 170 + Math.sin(t * Math.PI * 2) * 18
+						const y = 20 - t * 240
+						const opacity = smoothstep(0, 0.12, t) * (1 - smoothstep(0.6, 1, t))
+						path.setAttribute("opacity", opacity.toFixed(3))
+						path.setAttribute("transform", `translate(${f1(x)} ${f1(y)}) scale(${(0.6 + t * 0.85).toFixed(3)}) rotate(-8)`)
+					})
+
+					// The whole mate: a slow breath (deeper asleep, with a slump), a lean toward the pointer, the hop (stretching as it
+					// rises) and a wobble while it giggles.
+					const sleepy = clamp(sleepiness.value[0], 0, 1)
+					const breath = reducedMotion ? 0 : Math.sin((now / BREATH) * Math.PI * 2) * lerp(0.006, 0.02, sleepy)
+					// Lean, hop and slump are tuned for a 300px-tall mate and scale with it.
+					const unit = svg.getBoundingClientRect().height / 300
+					const [lx, ly] = lean.value
+					const lift = hop.value[0] * unit
+					const stretch = clamp(-hop.velocity[0] * 0.00018, -0.04, 0.05)
+					const wobble = giggle && !reducedMotion ? Math.sin(((now - giggle.start) / 1000) * Math.PI * 2 * 6) * 2.4 * (1 - (now - giggle.start) / 950) : 0
+					const [rx, ry] = recoil.value
+					// It leans back as it hops away from a click.
+					const rotate = lx * 2 + wobble - sleepy * 2.5 + rx * 0.3
+					svg.style.transform = `translate(${f1((lx * 7 + rx) * unit)}px, ${f1((ly * 5 + ry + sleepy * 4) * unit + lift)}px) rotate(${rotate.toFixed(2)}deg) scale(${(1 - stretch * 0.5).toFixed(4)}, ${(1 + breath + stretch).toFixed(4)})`
+				}
+
+				return {
+					play(name) {
+						const now = performance.now()
+						if (sleep.state !== "awake" && name !== "sleep") wake(now)
+						if (name === "blink") return startBlink(now, false)
+						if (name === "giggle") return startGiggle(now)
+						if (name === "sleep") {
+							// Clicking the button and moving off it shouldn't wake it straight away.
+							wakeGraceUntil = now + 1500
+							return doze(now)
+						}
+						if (name === "playful") {
+							queue = [CHEEKY_STEP(), { gaze: REST_GAZE, expr: "smirk", hold: 1800 }]
+							return runStep(now)
+						}
+						if (name === "look") {
+							queue = []
+							return runStep(now)
+						}
+					},
+					// Holds an expression and look for review: pose("grin", { angle: -30, m: 0.7, shut: 0 }); pose(null) lets go.
+					pose(name, { angle, m = 1.08, shut = 0 } = {}) {
+						if (!name) {
+							posed = null
+							return
+						}
+						posed = { gaze: angle === undefined ? REST_GAZE : gazeAtAngle(angle, m), shut }
+						setExpression(name)
+					},
+					setReach(value) {
+						reach = value
+					},
+					get reach() {
+						return reach
+					},
+					destroy() {
+						cancelAnimationFrame(frame)
+						activityEvents.forEach((type) => window.removeEventListener(type, onActivity))
+						document.removeEventListener("pointerout", onLeave)
+						svg.remove()
+					},
+				}
+			}
+
+			window.mountKodoMate = mountKodoMate
+		</script>
+		<script>
+
+			const mode = document.querySelector(".mode")
+			const MODE_LABELS = {
+				looking: "Looking around",
+				noticed: "Found you",
+				giggle: "Hehe, that tickles",
+				startle: "Oh!",
+				dozing: "Dozing off…",
+				asleep: "Asleep · move the mouse to wake it",
+			}
+			const mate = (window.kodoMate = mountKodoMate(document.querySelector(".mate"), {
+				reach: 2,
+				onMode(next) {
+					document.body.dataset.mode = next
+					mode.textContent = MODE_LABELS[next] ?? "Looking around"
+				},
+			}))
+
+			// Settings: the cog opens the panel; the cog again, Escape or a click outside closes it.
+			const cog = document.querySelector(".cog")
+			const panel = document.querySelector(".panel")
+			function setOpen(open) {
+				panel.hidden = !open
+				cog.setAttribute("aria-expanded", String(open))
+			}
+			cog.addEventListener("click", () => setOpen(panel.hidden))
+			document.addEventListener("keydown", (event) => {
+				if (event.key === "Escape" && !panel.hidden) {
+					setOpen(false)
+					cog.focus()
+				}
+			})
+			document.addEventListener("pointerdown", (event) => {
+				if (!panel.hidden && !panel.contains(event.target) && !cog.contains(event.target)) setOpen(false)
+			})
+
+			// The reach ring, centred where the mate measures from.
+			const reachRing = document.querySelector(".reach")
+			const holder = document.querySelector(".mate")
+			function placeRing() {
+				const rect = holder.getBoundingClientRect()
+				const stage = document.querySelector(".stage").getBoundingClientRect()
+				const size = rect.height * mate.reach * 2
+				reachRing.style.width = reachRing.style.height = `${size}px`
+				reachRing.style.left = `${rect.left - stage.left + rect.width / 2 - size / 2}px`
+				reachRing.style.top = `${rect.top - stage.top + rect.height * 0.52 - size / 2}px`
+			}
+			new ResizeObserver(placeRing).observe(holder)
+			window.addEventListener("resize", placeRing)
+
+			const slider = panel.querySelector("input[type=range]")
+			const output = panel.querySelector("output")
+			slider.addEventListener("input", () => {
+				mate.setReach(Number(slider.value))
+				output.textContent = `${Number(slider.value).toFixed(1)}×`
+				placeRing()
+			})
+
+			panel.querySelectorAll("[data-play]").forEach((button) => button.addEventListener("click", () => mate.play(button.dataset.play)))
+			panel.querySelector("[data-toggle=reach]").addEventListener("click", (event) => {
+				const on = event.currentTarget.getAttribute("aria-pressed") !== "true"
+				event.currentTarget.setAttribute("aria-pressed", String(on))
+				document.body.toggleAttribute("data-show-reach", on)
+			})
+			panel.querySelectorAll("button[data-size]").forEach((button) =>
+				button.addEventListener("click", () => {
+					document.body.dataset.size = button.dataset.size
+					panel.querySelectorAll("button[data-size]").forEach((other) => other.setAttribute("aria-pressed", String(other === button)))
+				})
+			)
+		</script>
+	</body>
+</html>
