@@ -24,6 +24,7 @@
 				background: var(--cream);
 				color: var(--ink);
 				font: 13px/1.3 "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+				-webkit-font-smoothing: antialiased;
 				display: grid;
 				overflow: hidden;
 			}
@@ -80,9 +81,71 @@
 			}
 			body[data-mode="noticed"] .mode::before,
 			body[data-mode="giggle"] .mode::before,
-			body[data-mode="startle"] .mode::before {
+			body[data-mode="startle"] .mode::before,
+			body[data-mode="eager"] .mode::before,
+			body[data-mode="cheer"] .mode::before {
 				background: var(--pink);
 				box-shadow: 0 0 6px var(--pink);
+			}
+			/* The Surveys empty state, as the dashboard has it (DS EmptyState and the secondary Button). */
+			.empty {
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 12px;
+				padding: 0 16px;
+				text-align: center;
+			}
+			.empty .mate {
+				margin-bottom: 8px;
+			}
+			.empty h1 {
+				margin: 0;
+				font-size: 14px;
+				line-height: 21px;
+				font-weight: 500;
+				letter-spacing: -0.15px;
+				color: #2f2c28;
+			}
+			.empty p {
+				margin: 0;
+				max-width: 448px;
+				font-size: 13px;
+				line-height: 19px;
+				letter-spacing: -0.25px;
+				color: #767570;
+			}
+			.cta {
+				margin-top: 12px;
+				display: inline-flex;
+				align-items: center;
+				gap: 6px;
+				min-height: 32px;
+				padding: 6px 12px;
+				border: 1px solid transparent;
+				border-radius: 999px;
+				background-image: linear-gradient(180deg, #ffffff 31.7%, #fbfaf9);
+				box-shadow: 0 0 0 0.5px rgb(50 45 37 / 9%), 0 3px 6px -2px rgb(50 45 37 / 3%), 0 1px 1px rgb(50 45 37 / 5%);
+				font: inherit;
+				font-size: 13px;
+				line-height: 16px;
+				font-weight: 500;
+				letter-spacing: -0.25px;
+				color: #2f2c28;
+				cursor: pointer;
+			}
+			.cta:hover {
+				background-image: linear-gradient(rgb(63 60 56 / 7%), rgb(63 60 56 / 7%)), linear-gradient(#faf8f5, #faf8f5);
+				box-shadow: 0 0 0 0.5px rgb(50 45 37 / 14%), 0 3px 6px -2px rgb(50 45 37 / 3%), 0 1px 1px rgb(50 45 37 / 5%);
+			}
+			.cta:focus-visible {
+				outline: none;
+				box-shadow: 0 0 0 2px #faf8f5, 0 0 0 4px rgb(47 44 40 / 30%);
+			}
+			.cta svg {
+				width: 16px;
+				height: 16px;
+				flex-shrink: 0;
 			}
 			/* Settings: a cog in the corner opens a small panel above it. */
 			.cog {
@@ -194,7 +257,18 @@
 		<main class="stage">
 			<div class="mode" aria-live="polite">Looking around</div>
 			<div class="reach" aria-hidden="true"></div>
-			<div class="mate"></div>
+			<div class="empty">
+				<div class="mate"></div>
+				<h1>Create your first survey</h1>
+				<p>Write your own, or start from a template below. Not ready yet? Look around with sample surveys first and see how it all works.</p>
+				<button class="cta" type="button">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+						<path d="m16.24 7.76-1.804 5.411a2 2 0 0 1-1.265 1.265L7.76 16.24l1.804-5.411a2 2 0 0 1 1.265-1.265z" />
+						<circle cx="12" cy="12" r="10" />
+					</svg>
+					Explore sample surveys
+				</button>
+			</div>
 		</main>
 		<button class="cog" type="button" aria-label="Settings" aria-expanded="false" aria-controls="settings">
 			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -232,7 +306,7 @@
 					<button type="button" data-size="large" aria-pressed="false">Large</button>
 				</div>
 			</section>
-			<p class="note">Touch it, wiggle over it, click it. Leave the mouse still for 15 seconds and it dozes off.</p>
+			<p class="note">Touch it, wiggle over it, click it, or hover and click the button. Leave the mouse still for 15 seconds and it dozes off.</p>
 		</div>
 		<script>
 			// Kodo mate: the pink K looks around for something that isn't there, pulls faces and blinks now and then. When the pointer
@@ -346,6 +420,8 @@
 				laugh: { mouth: "laugh", brows: "laugh", fill: 1, inner: 1, lid: 1, curve: -62 },
 				// pupil: pupil size against the white (1 as drawn); small pupils read as wide-eyed.
 				surprised: { mouth: "oh", brows: "up", fill: 1, pupil: 0.68 },
+				// Eager, watching the invite: an open smile, brows up.
+				eager: { mouth: "grin", brows: "up", fill: 1, inner: 1 },
 				drowsy: { mouth: "hmm", brows: "sleepy", lid: 0.55 },
 				asleep: { mouth: "sleepIn", brows: "sleepy", fill: 1, lid: 1, curve: 26 },
 			}
@@ -444,7 +520,7 @@
 			 * before it's noticed, in heights of the mate (default 1.6); `onMode`, told "looking", "noticed", "giggle", "startle", "dozing" or
 			 * "asleep" as it changes. Returns controls for the prototype page.
 			 */
-			function mountKodoMate(container, { reach = 1.6, onMode } = {}) {
+			function mountKodoMate(container, { reach = 1.6, invite, onMode } = {}) {
 				const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
 				const uid = Math.random().toString(36).slice(2, 8)
 
@@ -495,6 +571,7 @@
 				const lean = new Springs([0, 0], 5, 0.9) // the whole mate, -1..1 toward the pointer
 				const hop = new Springs([0], 13, 0.42) // px up/down, kicked when it notices the pointer or giggles
 				const recoil = new Springs([0, 0], 11, 0.6) // px, a hop back away from a click
+				const jump = new Springs([0], 7.5, 0.5) // px, the big, floatier jump for joy when the invite is clicked
 				const attention = new Springs([0], 7, 1)
 				const sleepiness = new Springs([0], 2.2, 1) // 0 awake, 1 fast asleep: a deeper breath and a slump
 
@@ -577,6 +654,9 @@
 					idleGaze = gaze
 				}
 
+				function leap(speed) {
+					if (!reducedMotion) jump.velocity[0] -= speed
+				}
 				function kick(speed) {
 					if (!reducedMotion) hop.velocity[0] -= speed
 				}
@@ -693,6 +773,45 @@
 					setMode("looking")
 				}
 
+				// --- the invite (`invite`, a button such as "Explore sample surveys"). Hovering it, the mate watches the button with an eager
+				// face, bouncing on the spot; clicking it, it jumps for joy.
+				let overTarget = false
+				let cheering = false
+				let bounces = 0
+				let nextBounce = 0
+				let celebrate = null // { start, until, kicks: [[at, speed, leap | kick]] }
+				function startCheer(now) {
+					cheering = true
+					bounces = 0
+					nextBounce = now
+					setExpression("eager")
+					setMode("eager")
+				}
+				function stopCheer() {
+					cheering = false
+					if (celebrate) return
+					setExpression(noticed ? "smile" : "smirk")
+					setMode(noticed ? "noticed" : "looking")
+				}
+				function startCelebrate(now) {
+					giggle = null
+					startle = null
+					recoil.set([0, 0])
+					blink = null
+					// One big jump (with more hang time than a hop), and a little bounce as it lands.
+					celebrate = { start: now, until: now + 1250, kicks: [[now, 600, leap], [now + 620, 170, kick]] }
+					setExpression("laugh")
+					setMode("cheer")
+				}
+				const onEnterTarget = () => (overTarget = true)
+				const onLeaveTarget = () => (overTarget = false)
+				const onClickTarget = () => {
+					if (sleep.state === "awake") startCelebrate(performance.now())
+				}
+				invite?.addEventListener("pointerenter", onEnterTarget)
+				invite?.addEventListener("pointerleave", onLeaveTarget)
+				invite?.addEventListener("click", onClickTarget)
+
 				// --- the pointer
 				let pointer = null // client px
 				let noticed = false
@@ -742,15 +861,21 @@
 					let pointerWorld = null
 					let toward = [0, 0]
 					let wanted = 0
-					if (pointer && awake && !posed) {
-						const dx = pointer.x - centre.x
-						const dy = pointer.y - centre.y
+					// While it cheers on the invite, it looks at the button rather than the pointer.
+					let focus = pointer
+					if (invite && (cheering || celebrate)) {
+						const button = invite.getBoundingClientRect()
+						focus = { x: button.left + button.width / 2, y: button.top + button.height / 2 }
+					}
+					if (focus && awake && !posed) {
+						const dx = focus.x - centre.x
+						const dy = focus.y - centre.y
 						const d = Math.hypot(dx, dy) / height
-						wanted = 1 - smoothstep(reach * 0.85, reach, d)
+						wanted = cheering || celebrate ? 1 : 1 - smoothstep(reach * 0.85, reach, d)
 						toward = [clamp(dx / (height * reach), -1, 1), clamp(dy / (height * reach), -1, 1)]
 						const ctm = svg.getScreenCTM()
 						if (ctm) {
-							const p = new DOMPoint(pointer.x, pointer.y).matrixTransform(ctm.inverse())
+							const p = new DOMPoint(focus.x, focus.y).matrixTransform(ctm.inverse())
 							pointerWorld = { x: p.x, y: p.y }
 						}
 					}
@@ -763,7 +888,7 @@
 							noticed = true
 							noticedAt = now
 							cheekyAt = now + rand(3500, 6000)
-							if (!giggle && !startle) {
+							if (!giggle && !startle && !cheering && !celebrate) {
 								setExpression("oh")
 								kick(240)
 								startBlink(now + 30, false)
@@ -771,13 +896,18 @@
 							}
 						} else if (noticed && att < 0.3) {
 							noticed = false
-							if (!giggle && !startle) {
+							if (!giggle && !startle && !cheering && !celebrate) {
 								setExpression("hmm")
 								setMode("looking")
 							}
 							queue = []
 							stepEndsAt = now + 700
 						}
+					}
+
+					if (awake && !posed) {
+						if (overTarget && !cheering) startCheer(now)
+						else if (!overTarget && cheering) stopCheer()
 					}
 
 					if (posed) {
@@ -791,6 +921,23 @@
 						if (now >= nextZ) {
 							zBirths = [...zBirths.filter((born) => now - born < 3600), now].slice(-3)
 							nextZ = now + 1250
+						}
+					} else if (celebrate) {
+						while (celebrate.kicks.length && now >= celebrate.kicks[0][0]) {
+							const [, speed, push] = celebrate.kicks.shift()
+							push(speed)
+						}
+						if (now >= celebrate.until) {
+							celebrate = null
+							if (cheering) {
+								setExpression("eager")
+								setMode("eager")
+								nextBounce = now + 500
+							} else {
+								setExpression(noticed ? "smile" : "smirk")
+								setMode(noticed ? "noticed" : "looking")
+							}
+							stepEndsAt = now + 400
 						}
 					} else if (startle) {
 						if (now >= startle.until) {
@@ -810,6 +957,13 @@
 							setMode(noticed ? "noticed" : "looking")
 							stepEndsAt = now + 400
 						}
+					} else if (cheering) {
+						// Hop, hop, hop, a pause, and again.
+						if (now >= nextBounce) {
+							kick(240)
+							bounces++
+							nextBounce = now + (bounces % 3 === 0 ? 900 : 260)
+						}
 					} else if (noticed) {
 						if (expression === "oh" && now - noticedAt > 380) setExpression("grin")
 						if (expression === "grin" && now - noticedAt > 1100) setExpression("smile")
@@ -822,9 +976,9 @@
 					}
 
 					// Rubbing back and forth over it keeps it giggling.
-					if (awake && !posed && onBody && !giggle && !startle && wiggled() && now - lastGiggle > 600 && now - sleep.since > 700) startGiggle(now)
-					if (awake && !posed && !giggle && !startle && now >= nextBlink && !blink) startBlink(now)
-					if (awake && !posed && !giggle && !startle && now - lastActivity > SLEEP_AFTER) doze(now)
+					if (awake && !posed && onBody && !giggle && !startle && !celebrate && wiggled() && now - lastGiggle > 600 && now - sleep.since > 700) startGiggle(now)
+					if (awake && !posed && !giggle && !startle && !celebrate && now >= nextBlink && !blink) startBlink(now)
+					if (awake && !posed && !giggle && !startle && !celebrate && now - lastActivity > SLEEP_AFTER) doze(now)
 
 					// Tiny drifts while holding a look, so the eyes never freeze.
 					if (now >= nextJitter) {
@@ -853,7 +1007,7 @@
 					shift.set([look.x + toward[0] * att * 6, look.y + toward[1] * att * 5])
 					lean.set(reducedMotion ? [0, 0] : [toward[0] * att, toward[1] * att])
 					sleepiness.set([sleep.state === "asleep" ? 1 : sleep.state === "drowsy" ? 0.45 : 0])
-					for (const spring of [mouth, brows, extras, lids, shift, lean, hop, recoil, sleepiness]) spring.step(dt)
+					for (const spring of [mouth, brows, extras, lids, shift, lean, hop, recoil, jump, sleepiness]) spring.step(dt)
 
 					render(now)
 				}
@@ -953,9 +1107,10 @@
 					// Lean, hop and slump are tuned for a 300px-tall mate and scale with it.
 					const unit = svg.getBoundingClientRect().height / 300
 					const [lx, ly] = lean.value
-					const lift = hop.value[0] * unit
-					const stretch = clamp(-hop.velocity[0] * 0.00018, -0.04, 0.05)
-					const wobble = giggle && !reducedMotion ? Math.sin(((now - giggle.start) / 1000) * Math.PI * 2 * 6) * 2.4 * (1 - (now - giggle.start) / 950) : 0
+					const lift = (hop.value[0] + jump.value[0]) * unit
+					const stretch = clamp(-(hop.velocity[0] + jump.velocity[0]) * 0.00018, -0.04, 0.05)
+					const shake = giggle ?? celebrate
+					const wobble = shake && !reducedMotion ? Math.sin(((now - shake.start) / 1000) * Math.PI * 2 * 6) * 2.4 * Math.max(0, 1 - (now - shake.start) / (shake.until - shake.start)) : 0
 					const [rx, ry] = recoil.value
 					// It leans back as it hops away from a click.
 					const rotate = lx * 2 + wobble - sleepy * 2.5 + rx * 0.3
@@ -998,6 +1153,9 @@
 						return reach
 					},
 					destroy() {
+						invite?.removeEventListener("pointerenter", onEnterTarget)
+						invite?.removeEventListener("pointerleave", onLeaveTarget)
+						invite?.removeEventListener("click", onClickTarget)
 						cancelAnimationFrame(frame)
 						activityEvents.forEach((type) => window.removeEventListener(type, onActivity))
 						document.removeEventListener("pointerout", onLeave)
@@ -1016,11 +1174,14 @@
 				noticed: "Found you",
 				giggle: "Hehe, that tickles",
 				startle: "Oh!",
+				eager: "Go on, have a look",
+				cheer: "Yay!",
 				dozing: "Dozing off…",
 				asleep: "Asleep · move the mouse to wake it",
 			}
 			const mate = (window.kodoMate = mountKodoMate(document.querySelector(".mate"), {
 				reach: 2,
+				invite: document.querySelector(".cta"),
 				onMode(next) {
 					document.body.dataset.mode = next
 					mode.textContent = MODE_LABELS[next] ?? "Looking around"
