@@ -582,7 +582,7 @@
 				}
 
 				// --- giggles: the first touch sets off a run of little hops. After that it takes a wiggle (the pointer jiggled back and
-				// forth over it) or a click to set off another. Once it loses the pointer (or sleeps), the next touch counts as a first.
+				// forth over it) to set off another. Moving away and back doesn't reset it; only a sleep does.
 				let giggle = null // { start, until, kicks: [[at, speed]] }
 				let onBody = false
 				let touched = false
@@ -763,7 +763,7 @@
 							noticed = true
 							noticedAt = now
 							cheekyAt = now + rand(3500, 6000)
-							if (!giggle) {
+							if (!giggle && !startle) {
 								setExpression("oh")
 								kick(240)
 								startBlink(now + 30, false)
@@ -771,8 +771,7 @@
 							}
 						} else if (noticed && att < 0.3) {
 							noticed = false
-							touched = false
-							if (!giggle) {
+							if (!giggle && !startle) {
 								setExpression("hmm")
 								setMode("looking")
 							}
